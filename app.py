@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 import numpy as np
 import pandas as pd
@@ -17,20 +17,22 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # CORS should be configured to allow specific origins in production
 
-# MongoDB connection
-mongo_url = os.getenv('MONGO_URL')  # Ensure this is set in your .env file
-client = pymongo.MongoClient(mongo_url)
-db = client['test']
+# MongoDB connection (Fork-Safe)
+def get_db():
+    if 'db' not in g:
+        mongo_url = os.getenv('MONGO_URL')
+        client = pymongo.MongoClient(mongo_url)
+        g.db = client['test']  # Use your actual DB
+    return g.db
 
-# MongoDB collections
-applicants_collection = db['applicants']
-jobs_collection = db['jobs']
-handbook_collection = db['handbooks']
-fraud_collection = db['frauds']
-transactions_collection = db['transactions']
+@app.teardown_appcontext
+def close_db(e=None):
+    db = g.pop('db', None)
+    if db is not None:
+        db.client.close()
 
-# Load the AI model
-model = SentenceTransformer('all-mpnet-base-v2')
+# Load a more efficient AI model (smaller version)
+model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
 # Home route
 @app.route('/', methods=['GET'])
@@ -40,6 +42,10 @@ def home():
 # Match applicant to job
 @app.route('/match', methods=['GET'])
 def match_applicant_to_job():
+    db = get_db()
+    applicants_collection = db['applicants']
+    jobs_collection = db['jobs']
+
     # Fetch the data from MongoDB collections
     applicant_data = pd.DataFrame(list(applicants_collection.find()))
     jobs_data = pd.DataFrame(list(jobs_collection.find()))
@@ -80,8 +86,9 @@ def match_applicant_to_job():
 # Handbook search
 @app.route('/handbook/<searchedTerm>', methods=['GET'])
 def get_answers(searchedTerm):
-    print(f'Search term received: {searchedTerm}')
-
+    db = get_db()
+    handbook_collection = db['handbooks']
+    
     # Get all the handbook entries
     handbook_entries = list(handbook_collection.find({}, {'_id': 0, 'PolicyTitle': 1, 'Policy': 1}))
 
@@ -113,6 +120,10 @@ def get_answers(searchedTerm):
 # Fraud detection
 @app.route('/fraud', methods=['GET'])
 def fraud_decision():
+    db = get_db()
+    fraud_collection = db['frauds']
+    transactions_collection = db['transactions']
+
     print('fraud has been triggered')
 
     # Fetch the labeled fraud data and unlabeled transaction data
@@ -120,10 +131,8 @@ def fraud_decision():
     transaction_data = pd.DataFrame(list(transactions_collection.find()))
     
     # Drop the '_id' column from both datasets
-    if '_id' in fraud_data.columns:
-        fraud_data = fraud_data.drop(columns=['_id'])
-    if '_id' in transaction_data.columns:
-        transaction_data = transaction_data.drop(columns=['_id'])
+    fraud_data = fraud_data.drop(columns=['_id'], errors='ignore')
+    transaction_data = transaction_data.drop(columns=['_id'], errors='ignore')
 
     # Ensure 'Is_Fraudulent' is the target variable (if not present, return error)
     if 'Is_Fraudulent' not in fraud_data.columns:
@@ -166,4 +175,4 @@ if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     
     # Run Flask app with explicit host and port
-    app.run(host='127.0.0.1', port=5000, debug=debug_mode)
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)

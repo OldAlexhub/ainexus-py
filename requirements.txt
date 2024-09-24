@@ -1,0 +1,11 @@
+Flask
+flask-cors
+pandas
+numpy
+pymongo
+xgboost
+imblearn
+scikit-learn
+sentence-transformers
+python-dotenv
+gunicorn

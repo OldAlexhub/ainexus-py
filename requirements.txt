@@ -1,11 +1,11 @@
-Flask
-flask-cors
-pandas
-numpy
-pymongo
-xgboost
-imblearn
-scikit-learn
-sentence-transformers
-python-dotenv
-gunicorn
+Flask==3.0.3
+flask-cors==5.0.0
+pandas==2.2.3
+numpy==2.1.1
+pymongo==4.9.1
+xgboost==1.7.5  # Use CPU version if not using GPU
+imbalanced-learn==0.12.3
+scikit-learn==1.5.2
+sentence-transformers==2.2.2  # Ensure it's a version without extra dependencies
+python-dotenv==1.0.1
+gunicorn==23.0.0

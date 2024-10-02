@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 import streamlit as st
+import subprocess
 import pandas as pd
 import numpy as np
 
@@ -190,7 +191,9 @@ if __name__ == '__main__':
             else:
                 raise e
 
-    # Run Streamlit in parallel with Flask
+    # Run Streamlit in parallel with Flask using subprocess
     streamlit_port = flask_port + 1  # Make Streamlit use the next available port
     streamlit_command = f"streamlit run app.py --server.port {streamlit_port}"
-    os.system(streamlit_command)
+
+    # Start Streamlit as a subprocess, running independently
+    subprocess.Popen(streamlit_command, shell=True)

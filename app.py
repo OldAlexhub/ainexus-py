@@ -174,16 +174,4 @@ def fraud_decision():
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    port = 5000
-    
-    # Try to find an available port
-    while True:
-        try:
-            app.run(host='0.0.0.0', port=port, debug=debug_mode)
-            break  # If it starts successfully, break the loop
-        except OSError as e:
-            if "Address already in use" in str(e):
-                print(f"Port {port} is already in use. Trying next port...")
-                port += 1  # Increment the port and try again
-            else:
-                raise e 
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)

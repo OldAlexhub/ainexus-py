@@ -1,8 +1,8 @@
+import spacy
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 import pymongo
 import os
-from sentence_transformers import SentenceTransformer, util
 from dotenv import load_dotenv
 import xgboost as xgb
 from sklearn.metrics import classification_report
@@ -31,11 +31,8 @@ def close_db(e=None):
     if db is not None:
         db.client.close()
 
-# Lazy load the model
-def get_model():
-    if 'model' not in g:
-        g.model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
-    return g.model
+# Load the spaCy model globally
+nlp = spacy.load("en_core_web_sm")
 
 # Home route
 @app.route('/', methods=['GET'])
@@ -71,10 +68,10 @@ def match_applicant_to_job():
         application_text = ' '.join(flatten_list_to_string(applicant_data[col]) for col in applicant_data if col in applicant_data)
         job_text = ' '.join(flatten_list_to_string(jobs_data[col].iloc[0]) for col in jobs_data)
 
-        # Lazy load model and compute similarity
-        model = get_model()
-        embeddings = model.encode([application_text, job_text])
-        similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+        # Process text with spaCy and compute similarity
+        applicant_doc = nlp(application_text)
+        job_doc = nlp(job_text)
+        similarity = applicant_doc.similarity(job_doc)
         match_percentage = round(similarity * 100, 2)
 
         # Prepare results
@@ -101,24 +98,26 @@ def get_answers(searchedTerm):
         # Fetch only required fields for matching
         handbook_entries = list(handbook_collection.find({}, {'_id': 0, 'PolicyTitle': 1, 'Policy': 1}))
 
-        # Lazy load model
-        model = get_model()
+        # Process the searched term using spaCy
+        query_doc = nlp(searchedTerm)
 
-        # Encode the searched term and policies
-        query_embedding = model.encode(searchedTerm)
+        # Iterate over handbook policies and compute similarity
         policies = [entry['Policy'] for entry in handbook_entries]
-        policy_embeddings = model.encode(policies)
+        similarities = []
+        for policy in policies:
+            policy_doc = nlp(policy)
+            similarity = query_doc.similarity(policy_doc)
+            similarities.append(similarity)
 
-        # Compute similarity scores and find best match
-        similarities = util.cos_sim(query_embedding, policy_embeddings).numpy()[0]
-        top_match_index = similarities.argmax()
+        # Find the best match based on highest similarity score
+        top_match_index = similarities.index(max(similarities))
         best_match = handbook_entries[top_match_index]
 
         result = {
             "searchedTerm": searchedTerm,
             "bestMatchPolicyTitle": best_match['PolicyTitle'],
             "bestMatchPolicy": best_match['Policy'],
-            "confidenceScore": float(similarities[top_match_index])
+            "confidenceScore": round(similarities[top_match_index], 4)  # Rounded for cleaner display
         }
 
         return jsonify(result), 200

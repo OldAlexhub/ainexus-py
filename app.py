@@ -8,8 +8,6 @@ import xgboost as xgb
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
-import streamlit as st
-import subprocess
 import pandas as pd
 import numpy as np
 
@@ -176,24 +174,16 @@ def fraud_decision():
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    flask_port = 5000
+    port = 5000
     
-    # Flask tries to find an available port
+    # Try to find an available port
     while True:
         try:
-            print(f"Starting Flask on port {flask_port}...")
-            app.run(host='0.0.0.0', port=flask_port, debug=debug_mode)
-            break
+            app.run(host='0.0.0.0', port=port, debug=debug_mode)
+            break  # If it starts successfully, break the loop
         except OSError as e:
             if "Address already in use" in str(e):
-                print(f"Port {flask_port} is already in use. Trying next port...")
-                flask_port += 1  # Increment the port and try again
+                print(f"Port {port} is already in use. Trying next port...")
+                port += 1  # Increment the port and try again
             else:
-                raise e
-
-    # Run Streamlit in parallel with Flask using subprocess
-    streamlit_port = flask_port + 1  # Make Streamlit use the next available port
-    streamlit_command = f"streamlit run app.py --server.port {streamlit_port}"
-
-    # Start Streamlit as a subprocess, running independently
-    subprocess.Popen(streamlit_command, shell=True)
+                raise e 
